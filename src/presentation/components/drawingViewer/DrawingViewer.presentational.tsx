@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import PagerView from 'react-native-pager-view';
+import React, { useMemo, useRef, useEffect } from 'react';
+import { ScrollView, View, Dimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import type { DrawingObject, DrawingStep } from '../../../domain/models/drawing';
@@ -13,6 +13,8 @@ export type DrawingViewerPresentationalProps = {
 };
 
 const SVG_VIEWBOX = '0 0 300 200';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const PAGE_WIDTH = SCREEN_WIDTH - 40; // padding 20 * 2 from container
 
 function SvgPathLayer({ svg_path }: { svg_path: string }) {
   return (
@@ -35,6 +37,13 @@ export function DrawingViewerPresentational({
 }: DrawingViewerPresentationalProps) {
   const steps: DrawingStep[] = object.steps;
   const stepCount = steps.length;
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ x: activeStepIndex * PAGE_WIDTH, animated: true });
+    }
+  }, [activeStepIndex]);
 
   const accumulatedPathsByIndex = useMemo(() => {
     const out: string[][] = [];
@@ -48,38 +57,41 @@ export function DrawingViewerPresentational({
   const renderPage = (index: number) => {
     const paths = accumulatedPathsByIndex[index] ?? [];
     return (
-      <Svg style={styles.svg} viewBox={SVG_VIEWBOX}>
-        {paths.map((d, idx) => (
-          <SvgPathLayer key={`${index}-${idx}`} svg_path={d} />
-        ))}
-      </Svg>
+      <View style={{ width: PAGE_WIDTH }} key={index}>
+        <Svg style={styles.svg} viewBox={SVG_VIEWBOX}>
+          {paths.map((d, idx) => (
+            <SvgPathLayer key={`${index}-${idx}`} svg_path={d} />
+          ))}
+          {onPressFinish && index === stepCount - 1 ? (
+             <Path
+               d="M 20 170 Q 150 60 280 170"
+               fill="none"
+               stroke="#FF2D55"
+               strokeWidth={4}
+               strokeLinecap="round"
+             />
+          ) : null}
+        </Svg>
+      </View>
     );
   };
 
   return (
-    <PagerView
-      style={styles.pager}
-      initialPage={activeStepIndex}
-      onPageSelected={(e) => {
-        const next = e.nativeEvent.position;
-        onStepIndexChange(next);
-      }}
-    >
-      {Array.from({ length: stepCount }).map((_, i) => (
-        <React.Fragment key={i}>{renderPage(i)}</React.Fragment>
-      ))}
-
-      {onPressFinish ? (
-        <Svg style={styles.finishSvg} viewBox={SVG_VIEWBOX}>
-          <Path
-            d="M 20 170 Q 150 60 280 170"
-            fill="none"
-            stroke="#FF2D55"
-            strokeWidth={4}
-            strokeLinecap="round"
-          />
-        </Svg>
-      ) : null}
-    </PagerView>
+    <View style={styles.pager}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => {
+          const next = Math.round(e.nativeEvent.contentOffset.x / PAGE_WIDTH);
+          if (next !== activeStepIndex) {
+            onStepIndexChange(next);
+          }
+        }}
+      >
+        {Array.from({ length: stepCount }).map((_, i) => renderPage(i))}
+      </ScrollView>
+    </View>
   );
 }

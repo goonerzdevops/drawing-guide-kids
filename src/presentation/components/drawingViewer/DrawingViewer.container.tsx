@@ -9,7 +9,7 @@ import { styles as containerStyles } from './DrawingViewer.styles';
 import { useJournalUpload } from '../../hooks/useJournalUpload';
 
 // Load static data
-const mockData = require('../../../../../constants/mockData.json') as { drawings: DrawingObject[] };
+const mockData = require('../../../../constants/mockData.json') as { drawings: DrawingObject[] };
 
 export type DrawingViewerContainerProps = {
   id: string;
